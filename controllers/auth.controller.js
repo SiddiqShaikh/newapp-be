@@ -1,7 +1,9 @@
 import prisma from "../DB/db.config.js";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
 import vine, { errors } from "@vinejs/vine";
 import { loginSchema, registerSchema } from "../validations/auth.validation.js";
-import bcrypt from "bcryptjs";
+import { exclude } from "../utils/helper.js";
 
 class AuthController {
   static async register(req, res) {
@@ -57,10 +59,23 @@ class AuthController {
       if (!bcrypt.compareSync(payload.password, findUser.password)) {
         return res.status(400).json({ message: "Invalid Credentials" });
       }
-
+      const payloadData = {
+        id: findUser.id,
+        name: findUser.name,
+        email: findUser.email,
+        profile: findUser.profile,
+      };
+      const token = jwt.sign(payloadData, process.env.JWT_SECRET, {
+        expiresIn: "365d",
+      });
+      const user = exclude(findUser, ["password"]);
       return res
         .status(200)
-        .json({ message: "Logged in successfully!", findUser });
+        .json({
+          message: "Logged in successfully!",
+          token: `Bearer ${token}`,
+          user,
+        });
     } catch (error) {
       if (error instanceof errors.E_VALIDATION_ERROR) {
         return res.status(400).json({ errors: error.messages });
